@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Lab Inventory Dashboard</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 30px; 
+            background-color: #f4f6f8; 
+            color: #333;
+        }
+        
+        .header-container {
+            margin-bottom: 25px;
+        }
+        h2 { margin: 0 0 5px 0; color: #111827; }
+        #loadingStatus { font-size: 0.9em; color: #6b7280; font-style: italic; margin-bottom: 15px; }
+
+        /* The New Filter Panel */
+        .filter-panel {
+            display: flex;
+            gap: 15px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .filter-group label {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+
+        .filter-group input, .filter-group select {
+            padding: 12px;
+            font-size: 15px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            transition: border-color 0.2s;
+        }
+
+        .filter-group input:focus, .filter-group select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        /* Table Styling */
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            background: white; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+            margin-top: 20px;
+        }
+        th, td { padding: 14px 20px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { 
+            background-color: #f3f4f6; 
+            font-weight: 600; 
+            color: #4b5563; 
+            text-transform: uppercase; 
+            font-size: 0.85em; 
+            letter-spacing: 0.05em;
+        }
+        tr:hover { background-color: #f8fafc; }
+        
+        .lab-badge { 
+            background: #e0e7ff; 
+            color: #3730a3; 
+            padding: 6px 12px; 
+            border-radius: 6px; 
+            font-size: 0.80em; 
+            font-weight: 700; 
+            display: inline-block;
+            white-space: nowrap;
+        }
+        
+        .empty-state { text-align: center; padding: 20px; color: #6b7280; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <h2>Laboratory Equipment Dashboard</h2>
+        <div id="loadingStatus">Initializing database...</div>
+    </div>
+
+    <div class="filter-panel">
+        <div class="filter-group">
+            <label for="labFilter">Select Lab</label>
+            <select id="labFilter" onchange="applyFilters()">
+                <option value="ALL">-- Show All Labs --</option>
+                </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="equipFilter">Search Equipment</label>
+            <input type="text" id="equipFilter" placeholder="e.g., Microscope..." onkeyup="applyFilters()">
+        </div>
+
+        <div class="filter-group">
+            <label for="slipFilter">Search Slip No.</label>
+            <input type="text" id="slipFilter" placeholder="e.g., B-101..." onkeyup="applyFilters()">
+        </div>
+    </div>
+
+    <table id="equipmentTable">
+        <thead>
+            <tr>
+                <th>Lab Name</th>
+                <th>Sr. No</th>
+                <th>Equipment Name</th>
+                <th>Qty</th>
+                <th>Slip No (B-PHARM)</th>
+                <th>Slip No (M-PHARM)</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <tr id="loadingRow"><td colspan="6" class="empty-state">Loading data from Google Sheets...</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        const labSheets = [
+            { name: "PHARMACOLOGY-I", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=0&single=true&output=csv" },
+            { name: "PHARMA CHEMISTRY-IV", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=176670992&single=true&output=csv" },
+            { name: "PHARMACOGNOSY", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=17026543&single=true&output=csv" },
+            { name: "MUSEUM", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=106592523&single=true&output=csv" },
+            { name: "PHARMACEUTICS-II", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=772416395&single=true&output=csv" },
+            { name: "MACHINE ROOM", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=1465445570&single=true&output=csv" },
+            { name: "PHARMA CHEMISTRY-I", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=799771588&single=true&output=csv" },
+            { name: "PHARMA CHEMISTRY-II", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=1983801003&single=true&output=csv" },
+            { name: "PHARMACY PRACTICE", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=80586002&single=true&output=csv" },
+            { name: "ASEPTIC CABINET", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=1138444001&single=true&output=csv" },
+            { name: "PHARMACEUTICS-III", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=1193107896&single=true&output=csv" },
+            { name: "PHARMACOLOGY-II", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=1802924267&single=true&output=csv" }
+        ];
+
+        // Automatically populate the dropdown menu so we don't have to type them twice
+        function populateDropdown() {
+            const dropdown = document.getElementById('labFilter');
+            labSheets.forEach(lab => {
+                const option = document.createElement('option');
+                option.value = lab.name;
+                option.textContent = lab.name;
+                dropdown.appendChild(option);
+            });
+        }
+
+        async function loadData() {
+            populateDropdown();
+            const tableBody = document.getElementById('tableBody');
+            const statusText = document.getElementById('loadingStatus');
+            tableBody.innerHTML = ''; 
+            
+            let totalRowsLoaded = 0;
+
+            for (let i = 0; i < labSheets.length; i++) {
+                const lab = labSheets[i];
+                statusText.innerText = `Loading data from ${lab.name} (${i + 1}/${labSheets.length})...`;
+                
+                try {
+                    const response = await fetch(lab.url);
+                    const data = await response.text();
+                    const rows = data.split('\n').slice(1); 
+                    
+                    rows.forEach(row => {
+                        const columns = row.split(',');
+                        if (columns.length >= 2 && columns[1] && columns[1].trim() !== '') {
+                            const tr = document.createElement('tr');
+                            // We add a class "data-row" to easily identify rows to filter later
+                            tr.className = "data-row";
+                            
+                            tr.innerHTML = `
+                                <td><span class="lab-badge">${lab.name}</span></td>
+                                <td>${columns[0] ? columns[0].trim() : ''}</td>
+                                <td><strong>${columns[1] ? columns[1].trim() : ''}</strong></td>
+                                <td>${columns[2] ? columns[2].trim() : ''}</td>
+                                <td>${columns[3] ? columns[3].trim() : ''}</td>
+                                <td>${columns[4] ? columns[4].trim() : ''}</td>
+                            `;
+                            tableBody.appendChild(tr);
+                            totalRowsLoaded++;
+                        }
+                    });
+                } catch (error) {
+                    console.error(`Error loading data for ${lab.name}:`, error);
+                }
+            }
+            
+            if (totalRowsLoaded === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="empty-state">No equipment records found.</td></tr>';
+                statusText.innerText = "Load complete: 0 records found.";
+            } else {
+                statusText.innerText = `Ready! Loaded ${totalRowsLoaded} equipment records.`;
+                statusText.style.color = "#10b981"; 
+            }
+        }
+
+        // --- NEW ADVANCED MULTI-FILTER LOGIC ---
+        function applyFilters() {
+            // 1. Get the current value of all three inputs
+            const selectedLab = document.getElementById('labFilter').value;
+            const equipQuery = document.getElementById('equipFilter').value.toLowerCase();
+            const slipQuery = document.getElementById('slipFilter').value.toLowerCase();
+            
+            // 2. Get all rows that contain data
+            const rows = document.getElementsByClassName('data-row');
+
+            // 3. Loop through every row and check if it matches the filters
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                
+                // Get the specific text from the specific columns
+                const labName = row.cells[0].textContent;
+                const equipName = row.cells[2].textContent.toLowerCase();
+                const slipB = row.cells[4].textContent.toLowerCase();
+                const slipM = row.cells[5].textContent.toLowerCase();
+
+                let shouldShow = true;
+
+                // Check Lab Dropdown (If it's not "ALL" and doesn't match the row's lab, hide it)
+                if (selectedLab !== "ALL" && labName !== selectedLab) {
+                    shouldShow = false;
+                }
+
+                // Check Equipment Name
+                if (equipQuery !== "" && !equipName.includes(equipQuery)) {
+                    shouldShow = false;
+                }
+
+                // Check Slip No (It checks BOTH the B-Pharm and M-Pharm columns)
+                if (slipQuery !== "" && !(slipB.includes(slipQuery) || slipM.includes(slipQuery))) {
+                    shouldShow = false;
+                }
+
+                // Apply the result
+                row.style.display = shouldShow ? "" : "none";
+            }
+        }
+
+        // Start loading when the page opens
+        loadData();
+    </script>
+</body>
+</html>
