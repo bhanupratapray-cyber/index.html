@@ -21,7 +21,7 @@
             display: flex; gap: 15px; background: white; padding: 20px;
             border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); flex-wrap: wrap;
         }
-        .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 200px; }
+        .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 180px; }
         .filter-group label {
             font-size: 0.85em; font-weight: 600; color: #4b5563; margin-bottom: 6px; text-transform: uppercase;
         }
@@ -34,12 +34,12 @@
             width: 100%; border-collapse: collapse; background: white; border-radius: 8px; 
             overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-top: 20px;
         }
-        th, td { padding: 14px 20px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: 0.95em; }
         th { background-color: #f3f4f6; font-weight: 600; color: #4b5563; text-transform: uppercase; font-size: 0.85em; }
         tr:hover { background-color: #f8fafc; }
         
         .lab-badge { 
-            background: #e0e7ff; color: #3730a3; padding: 6px 12px; border-radius: 6px; 
+            background: #e0e7ff; color: #3730a3; padding: 6px 10px; border-radius: 6px; 
             font-size: 0.80em; font-weight: 700; display: inline-block; white-space: nowrap;
         }
         .empty-state { text-align: center; padding: 20px; color: #6b7280; font-style: italic; }
@@ -66,8 +66,13 @@
         </div>
 
         <div class="filter-group">
+            <label for="idFilter">Search Unique ID</label>
+            <input type="text" id="idFilter" placeholder="e.g., UID-1024..." onkeyup="applyFilters()">
+        </div>
+
+        <div class="filter-group">
             <label for="slipFilter">Exact Slip No.</label>
-            <input type="text" id="slipFilter" placeholder="Type 2 for B-Pharm, M-2 for M-Pharm" onkeyup="applyFilters()">
+            <input type="text" id="slipFilter" placeholder="Type 2 or m-2" onkeyup="applyFilters()">
         </div>
     </div>
 
@@ -77,94 +82,93 @@
                 <th>Lab Name</th>
                 <th>Sr. No</th>
                 <th>Equipment Name</th>
+                <th>Unique ID</th>
+                <th>Model No</th>
                 <th>Qty</th>
+                <th>Remark</th>
                 <th>Slip No (B-PHARM)</th>
                 <th>Slip No (M-PHARM)</th>
             </tr>
         </thead>
         <tbody id="tableBody">
-            <tr id="loadingRow"><td colspan="6" class="empty-state">Loading data from Google Sheets...</td></tr>
+            <tr id="loadingRow"><td colspan="9" class="empty-state">Loading data from Google Sheet...</td></tr>
         </tbody>
     </table>
 
     <script>
-        const labSheets = [
-            { name: "PHARMACOLOGY-I", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=0&single=true&output=csv" },
-            { name: "PHARMA CHEMISTRY-IV", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=176670992&single=true&output=csv" },
-            { name: "PHARMACOGNOSY", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=17026543&single=true&output=csv" },
-            { name: "MUSEUM", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=106592523&single=true&output=csv" },
-            { name: "PHARMACEUTICS-II", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=772416395&single=true&output=csv" },
-            { name: "MACHINE ROOM", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=1465445570&single=true&output=csv" },
-            { name: "PHARMA CHEMISTRY-I", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=799771588&single=true&output=csv" },
-            { name: "PHARMA CHEMISTRY-II", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=1983801003&single=true&output=csv" },
-            { name: "PHARMACY PRACTICE", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=80586002&single=true&output=csv" },
-            { name: "ASEPTIC CABINET", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=1138444001&single=true&output=csv" },
-            { name: "PHARMACEUTICS-III", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=1193107896&single=true&output=csv" },
-            { name: "PHARMACOLOGY-II", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtoRl-Q3eYVjuS0_BfR8ioYoSMumWs4c2PFOq9vPCTsufqA_eh16IJQoE4E5sAwoipjQ59Jetn_2Rr/pub?gid=1802924267&single=true&output=csv" }
-        ];
-
-        function populateDropdown() {
-            const dropdown = document.getElementById('labFilter');
-            labSheets.forEach(lab => {
-                const option = document.createElement('option');
-                option.value = lab.name;
-                option.textContent = lab.name;
-                dropdown.appendChild(option);
-            });
-        }
+        // --- PUT YOUR SINGLE PUBLISHED CSV LINK HERE ---
+        const masterSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRK07eZ2KUdrTvydgGNgvqkf-MvS_PHJ8inUHO4ohWDrCv9aORnsDPz-ZrSiFOShigY4DH_GTZCgNC4/pub?output=csv";
 
         async function loadData() {
-            populateDropdown();
             const tableBody = document.getElementById('tableBody');
             const statusText = document.getElementById('loadingStatus');
+            const dropdown = document.getElementById('labFilter');
+            
             tableBody.innerHTML = ''; 
-            
             let totalRowsLoaded = 0;
+            const uniqueLabs = new Set();
 
-            for (let i = 0; i < labSheets.length; i++) {
-                const lab = labSheets[i];
-                statusText.innerText = `Loading data from ${lab.name} (${i + 1}/${labSheets.length})...`;
+            try {
+                const response = await fetch(masterSheetUrl);
+                const data = await response.text();
                 
-                try {
-                    const response = await fetch(lab.url);
-                    const data = await response.text();
-                    const rows = data.split('\n').slice(1); 
+                const rows = data.split('\n').slice(1); 
+                
+                rows.forEach(row => {
+                    const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(col => col.replace(/^"|"$/g, '').trim());
                     
-                    rows.forEach(row => {
-                        const columns = row.split(',');
-                        if (columns.length >= 2 && columns[1] && columns[1].trim() !== '') {
-                            const tr = document.createElement('tr');
-                            tr.className = "data-row";
-                            
-                            tr.innerHTML = `
-                                <td><span class="lab-badge">${lab.name}</span></td>
-                                <td>${columns[0] ? columns[0].trim() : ''}</td>
-                                <td><strong>${columns[1] ? columns[1].trim() : ''}</strong></td>
-                                <td>${columns[2] ? columns[2].trim() : ''}</td>
-                                <td>${columns[3] ? columns[3].trim() : ''}</td>
-                                <td>${columns[4] ? columns[4].trim() : ''}</td>
-                            `;
-                            tableBody.appendChild(tr);
-                            totalRowsLoaded++;
-                        }
-                    });
-                } catch (error) {
-                    console.error(`Error loading data for ${lab.name}:`, error);
+                    if (columns.length >= 3 && columns[2] && columns[2] !== '') {
+                        
+                        const labName = columns[0] ? columns[0] : 'Uncategorized Lab';
+                        uniqueLabs.add(labName);
+
+                        const tr = document.createElement('tr');
+                        tr.className = "data-row";
+                        
+                        // Added columns 7 and 8 for the slip numbers
+                        tr.innerHTML = `
+                            <td><span class="lab-badge">${labName}</span></td>
+                            <td>${columns[1] ? columns[1] : ''}</td>
+                            <td><strong>${columns[2] ? columns[2] : ''}</strong></td>
+                            <td>${columns[3] ? columns[3] : ''}</td>
+                            <td>${columns[4] ? columns[4] : ''}</td>
+                            <td>${columns[5] ? columns[5] : ''}</td>
+                            <td>${columns[6] ? columns[6] : ''}</td>
+                            <td>${columns[7] ? columns[7] : ''}</td>
+                            <td>${columns[8] ? columns[8] : ''}</td>
+                        `;
+                        tableBody.appendChild(tr);
+                        totalRowsLoaded++;
+                    }
+                });
+
+                const sortedLabs = Array.from(uniqueLabs).sort();
+                sortedLabs.forEach(lab => {
+                    const option = document.createElement('option');
+                    option.value = lab;
+                    option.textContent = lab;
+                    dropdown.appendChild(option);
+                });
+
+                if (totalRowsLoaded === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="9" class="empty-state">No equipment records found.</td></tr>';
+                    statusText.innerText = "Load complete: 0 records found.";
+                } else {
+                    statusText.innerText = `Ready! Loaded ${totalRowsLoaded} equipment records.`;
+                    statusText.style.color = "#10b981"; 
                 }
-            }
-            
-            if (totalRowsLoaded === 0) {
-                tableBody.innerHTML = '<tr><td colspan="6" class="empty-state">No equipment records found.</td></tr>';
-                statusText.innerText = "Load complete: 0 records found.";
-            } else {
-                statusText.innerText = `Ready! Loaded ${totalRowsLoaded} equipment records.`;
-                statusText.style.color = "#10b981"; 
+
+            } catch (error) {
+                console.error("Error loading data:", error);
+                tableBody.innerHTML = '<tr><td colspan="9" class="empty-state" style="color:red;">Error connecting to Google Sheets. Check your link.</td></tr>';
+                statusText.innerText = "Connection failed.";
             }
         }
 
         function applyFilters() {
             const selectedLab = document.getElementById('labFilter').value;
             const equipQuery = document.getElementById('equipFilter').value.toLowerCase().trim();
+            const idQuery = document.getElementById('idFilter').value.toLowerCase().trim();
             const slipQuery = document.getElementById('slipFilter').value.toLowerCase().trim();
             
             const rows = document.getElementsByClassName('data-row');
@@ -172,36 +176,35 @@
             for (let i = 0; i < rows.length; i++) {
                 const row = rows[i];
                 
+                // Fetch text from specific columns
                 const labName = row.cells[0].textContent;
                 const equipName = row.cells[2].textContent.toLowerCase();
-                const slipB = row.cells[4].textContent.toLowerCase().trim();
-                const slipM = row.cells[5].textContent.toLowerCase().trim();
+                const uniqueId = row.cells[3].textContent.toLowerCase();
+                const slipB = row.cells[7].textContent.toLowerCase().trim(); // Column 8 (index 7)
+                const slipM = row.cells[8].textContent.toLowerCase().trim(); // Column 9 (index 8)
 
                 let shouldShow = true;
 
-                // 1. Check Lab Dropdown
                 if (selectedLab !== "ALL" && labName !== selectedLab) {
                     shouldShow = false;
                 }
-
-                // 2. Check Equipment Name
+                
                 if (equipQuery !== "" && !equipName.includes(equipQuery)) {
                     shouldShow = false;
                 }
+                
+                if (idQuery !== "" && !uniqueId.includes(idQuery)) {
+                    shouldShow = false;
+                }
 
-                // 3. The New Advanced Slip No Logic
+                // The restored Advanced Slip No Logic
                 if (slipQuery !== "") {
-                    // Check if the user typed "m-" at the start
                     if (slipQuery.startsWith("m-")) {
-                        // Extract just the number part (remove the "m-")
                         const targetNumber = slipQuery.replace("m-", "");
-                        
-                        // ONLY look in the M-Pharm column
                         if (slipM !== targetNumber) {
                             shouldShow = false;
                         }
                     } else {
-                        // If there is no "m-", ONLY look in the B-Pharm column
                         if (slipB !== slipQuery) {
                             shouldShow = false;
                         }
